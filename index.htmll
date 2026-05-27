@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Jugu Jugu - Life: 3D Boy Adventure</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+        }
+        .game-container {
+            text-align: center;
+            background: rgba(0,0,0,0.8);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        canvas {
+            border: 3px solid gold;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        h1 {
+            color: gold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            margin-top: 0;
+        }
+        .instructions {
+            color: white;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+        button {
+            background: gold;
+            border: none;
+            padding: 10px 20px;
+            margin-top: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover {
+            background: #ffd700;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🎮 JUGU JUGU - LIFE 🎮</h1>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div class="instructions">
+            🎯 LEFT/RIGHT arrows to move | 🎵 Press SPACE to start | ❌ ESC to quit
+        </div>
+        <button onclick="location.reload()">🔄 Restart Game</button>
+    </div>
+
+    <script>
+        // Canvas setup
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Game variables
+        let score = 0;
+        let energy = 100;
+        let distance = 0;
+        let gameRunning = false;
+        let gameLoop = null;
+        
+        // Player
+        let playerX = 400;
+        let playerY = 500;
+        
+        // Obstacles and powerups
+        let obstacles = [];
+        let powerups = [];
+        let frameCount = 0;
+        
+        // Keys
+        const keys = {};
+        
+        // Colors
+        const SKY_BLUE = '#87CEEB';
+        const GROUND_BROWN = '#654321';
+        const GOLD = '#FFD700';
+        const RED = '#FF3232';
+        const WHITE = '#FFFFFF';
+        const BLACK = '#000000';
+        
+        // Player colors
+        const PLAYER_SKIN = '#FFCE9E';
+        const PLAYER_SHIRT = '#3296FF';
+        const PLAYER_PANTS = '#4646C8';
+        
+        // Event listeners
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            if (e.key === ' ' && !gameRunning) {
+                e.preventDefault();
+                startGame();
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+        
+        function startGame() {
+            gameRunning = true;
+            score = 0;
+            energy = 100;
+            distance = 0;
+            obstacles = [];
+            powerups = [];
+            frameCount = 0;
+            playerX = 400;
+            
+            if (gameLoop) cancelAnimationFrame(gameLoop);
+            gameLoop = requestAnimationFrame(update);
+        }
+        
+        function draw3DRoad() {
+            // Sky gradient
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, SKY_BLUE);
+            gradient.addColorStop(0.5, '#B0E0FF');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Ground
+            ctx.fillStyle = GROUND_BROWN;
+            ctx.fillRect(0, canvas.height/2, canvas.width, canvas.height/2);
+            
+            // Road lines with 3D perspective
+            ctx.strokeStyle = GOLD;
+            ctx.lineWidth = 3;
+            for(let i = 0; i < canvas.width; i += 50) {
+                ctx.beginPath();
+                ctx.moveTo(i, canvas.height/2 + 100);
+                ctx.lineTo(i + 50, canvas.height);
+                ctx.stroke();
+            }
+            
+            // Sidewalk
+            ctx.fillStyle = '#969696';
+            ctx.fillRect(0, canvas.height - 120, canvas.width, 120);
+            ctx.strokeStyle = BLACK;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height - 120);
+            ctx.lineTo(canvas.width, canvas.height - 120);
+            ctx.stroke();
+        }
+        
+        function draw3DBoy(x, y) {
+            // Shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.beginPath();
+            ctx.ellipse(x, y + 15, 25, 10, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Body
+            ctx.fillStyle = PLAYER_SHIRT;
+            ctx.beginPath();
+            ctx.ellipse(x, y - 30, 20, 30, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Pants
+            ctx.fillStyle = PLAYER_PANTS;
+            ctx.fillRect(x - 18, y - 15, 36, 25);
+            
+            // Head
+            ctx.fillStyle = PLAYER_SKIN;
+            ctx.beginPath();
+            ctx.arc(x, y - 55, 18, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Hair
+            ctx.fillStyle = '#654321';
+            ctx.beginPath();
+            ctx.ellipse(x, y - 68, 18, 10, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Eyes
+            ctx.fillStyle = WHITE;
+            ctx.beginPath();
+            ctx.arc(x - 8, y - 60, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(x + 8, y - 60, 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = BLACK;
+            ctx.beginPath();
+            ctx.arc(x - 8, y - 60, 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(x + 8, y - 60, 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Smile
+            ctx.beginPath();
+            ctx.arc(x, y - 52, 10, 0.1, Math.PI - 0.1);
+            ctx.stroke();
+            
+            // Arms
+            ctx.fillStyle = PLAYER_SHIRT;
+            ctx.fillRect(x - 32, y - 45, 12, 30);
+            ctx.fillRect(x + 20, y - 45, 12, 30);
+            
+            // Legs
+            ctx.fillStyle = PLAYER_PANTS;
+            ctx.fillRect(x - 15, y - 10, 10, 30);
+            ctx.fillRect(x + 5, y - 10, 10, 30);
+        }
+        
+        function drawObstacle(ob) {
+            const sizeMultiplier = 1 + (10 - ob.zPos) / 15;
+            const width = 30 * sizeMultiplier;
+            const height = 30 * sizeMultiplier;
+            const x = ob.x - width/2;
+            const y = canvas.height - 100 - height;
+            
+            // Shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.fillRect(x + 5, y + 5, width, height);
+            
+            // Obstacle
+            ctx.fillStyle = RED;
+            ctx.fillRect(x, y, width, height);
+            
+            // Highlight
+            ctx.fillStyle = '#FF6666';
+            ctx.fillRect(x + 5, y + 5, width - 10, 5);
+        }
+        
+        function drawPowerup(pu) {
+            const sizeMultiplier = 1 + (8 - pu.zPos) / 12;
+            const size = 25 * sizeMultiplier;
+            const x = pu.x - size/2;
+            const y = canvas.height - 110 - size;
+            
+            ctx.fillStyle = GOLD;
+            ctx.beginPath();
+            for(let i = 0; i < 5; i++) {
+                const angle = (i * 72 - 90) * Math.PI / 180;
+                const x2 = x + size/2 + Math.cos(angle) * size/2;
+                const y2 = y + size/2 + Math.sin(angle) * size/2;
+                if(i === 0) ctx.moveTo(x2, y2);
+                else ctx.lineTo(x2, y2);
+            }
+            ctx.closePath();
+            ctx.fill();
+        }
+        
+        function drawUI() {
+            ctx.fillStyle = GOLD;
+            ctx.font = 'bold 30px Arial';
+            ctx.fillText(`Score: ${score}`, 20, 50);
+            
+            ctx.fillStyle = WHITE;
+            ctx.font = '20px Arial';
+            ctx.fillText(`Energy: ${Math.floor(energy)}`, 20, 90);
+            ctx.fillText(`Distance: ${Math.floor(distance)}m`, 20, 120);
+            
+            // Energy bar
+            ctx.fillStyle = RED;
+            ctx.fillRect(canvas.width - 220, 20, 200, 20);
+            ctx.fillStyle = '#00FF00';
+            ctx.fillRect(canvas.width - 220, 20, 200 * (energy/100), 20);
+            ctx.strokeStyle = WHITE;
+            ctx.strokeRect(canvas.width - 220, 20, 200, 20);
+            
+            ctx.fillStyle = WHITE;
+            ctx.font = '14px Arial';
+            ctx.fillText('ENERGY', canvas.width - 120, 15);
+        }
+        
+        function update() {
+            if (!gameRunning) {
+                // Draw start screen
+                draw3DRoad();
+                draw3DBoy(400, 450);
+                ctx.fillStyle = GOLD;
+                ctx.font = 'bold 50px Arial';
+                ctx.fillText('JUGU JUGU - LIFE', canvas.width/2 - 200, 100);
+                ctx.fillStyle = WHITE;
+                ctx.font = '30px Arial';
+                ctx.fillText('Press SPACE to Start', canvas.width/2 - 130, 300);
+                ctx.font = '16px Arial';
+                ctx.fillText('← →  Move | Dodge obstacles | Collect stars', canvas.width/2 - 180, 400);
+                return;
+            }
+            
+            // Movement
+            if (keys['ArrowLeft'] && playerX > 60) playerX -= 7;
+            if (keys['ArrowRight'] && playerX < canvas.width - 60) playerX += 7;
+            
+            // Spawn obstacles
+            if (frameCount % 45 === 0 && obstacles.length < 5) {
+                obstacles.push({
+                    x: canvas.width,
+                    zPos: Math.random() * 9 + 1,
+                    speed: 5 + Math.random() * 3
+                });
+            }
+            
+            // Spawn powerups
+            if (frameCount % 120 === 0 && powerups.length < 3) {
+                powerups.push({
+                    x: canvas.width,
+                    zPos: Math.random() * 7 + 1,
+                    speed: 4 + Math.random() * 2
+                });
+            }
+            
+            // Update obstacles
+            for(let i = 0; i < obstacles.length; i++) {
+                obstacles[i].x -= obstacles[i].speed;
+                if (obstacles[i].x < -50) {
+                    obstacles.splice(i, 1);
+                    score += 10;
+                    i--;
+                }
+            }
+            
+            // Update powerups
+            for(let i = 0; i < powerups.length; i++) {
+                powerups[i].x -= powerups[i].speed;
+                if (powerups[i].x < -50) {
+                    powerups.splice(i, 1);
+                    i--;
+                }
+            }
+            
+            // Collision detection
+            for(let i = 0; i < obstacles.length; i++) {
+                const ob = obstacles[i];
+                const sizeMultiplier = 1 + (10 - ob.zPos) / 15;
+                const size = 30 * sizeMultiplier;
+                if (Math.abs(ob.x - playerX) < size && Math.abs(canvas.height - 100 - playerY + 55) < size) {
+                    energy -= 20;
+                    obstacles.splice(i, 1);
+                    if (energy <= 0) {
+                        gameRunning = false;
+                        drawGameOver();
+                        return;
+                    }
+                    break;
+                }
+            }
+            
+            for(let i = 0; i < powerups.length; i++) {
+                const pu = powerups[i];
+                const sizeMultiplier = 1 + (8 - pu.zPos) / 12;
+                const size = 25 * sizeMultiplier;
+                if (Math.abs(pu.x - playerX) < size && Math.abs(canvas.height - 110 - playerY + 55) < size) {
+                    energy = Math.min(100, energy + 20);
+                    score += 25;
+                    powerups.splice(i, 1);
+                    break;
+                }
+            }
+            
+            // Increase distance and natural energy decay
+            distance += 0.5;
+            if (frameCount % 60 === 0) {
+                energy = Math.max(0, energy - 1);
+                if (energy <= 0) {
+                    gameRunning = false;
+                    drawGameOver();
+                    return;
+                }
+            }
+            
+            if (frameCount % 300 === 0) {
+                score += 50;
+            }
+            
+            // Draw everything
+            draw3DRoad();
+            for(let ob of obstacles) drawObstacle(ob);
+            for(let pu of powerups) drawPowerup(pu);
+            draw3DBoy(playerX, playerY);
+            drawUI();
+            
+            frameCount++;
+            requestAnimationFrame(update);
+        }
+        
+        function drawGameOver() {
+            ctx.fillStyle = 'rgba(0,0,0,0.8)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = RED;
+            ctx.font = 'bold 50px Arial';
+            ctx.fillText('GAME OVER!', canvas.width/2 - 130, canvas.height/2 - 50);
+            ctx.fillStyle = GOLD;
+            ctx.font = '30px Arial';
+            ctx.fillText(`Final Score: ${Math.floor(score)}`, canvas.width/2 - 100, canvas.height/2 + 20);
+            ctx.fillStyle = WHITE;
+            ctx.font = '20px Arial';
+            ctx.fillText(`Distance: ${Math.floor(distance)}m`, canvas.width/2 - 70, canvas.height/2 + 70);
+            ctx.fillStyle = GOLD;
+            ctx.font = '18px Arial';
+            ctx.fillText('Press SPACE to play again', canvas.width/2 - 130, canvas.height/2 + 140);
+            
+            setTimeout(() => {
+                document.addEventListener('keydown', function restartHandler(e) {
+                    if (e.key === ' ') {
+                        e.preventDefault();
+                        document.removeEventListener('keydown', restartHandler);
+                        startGame();
+                    }
+                }, { once: true });
+            }, 100);
+        }
+        
+        // Start with start screen
+        function init() {
+            draw3DRoad();
+            draw3DBoy(400, 450);
+            ctx.fillStyle = GOLD;
+            ctx.font = 'bold 50px Arial';
+            ctx.fillText('JUGU JUGU - LIFE', canvas.width/2 - 200, 100);
+            ctx.fillStyle = WHITE;
+            ctx.font = '30px Arial';
+            ctx.fillText('Press SPACE to Start', canvas.width/2 - 130, 300);
+            ctx.font = '16px Arial';
+            ctx.fillText('← →  Move | Dodge obstacles | Collect stars', canvas.width/2 - 180, 400);
+        }
+        
+        init();
+    </script>
+</body>
+</html>
